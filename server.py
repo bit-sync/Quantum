@@ -1,4 +1,4 @@
-from flask import Flask, send_from_directory, abort
+from flask import Flask, send_from_directory, abort, render_template_string
 import os
 
 app = Flask(__name__)
@@ -14,12 +14,17 @@ def safe_join(directory, path):
     if os.path.commonprefix([final_path, directory]) == directory:
         return final_path
     return None
-@app.route("/")
-def route():
-    return "Quantum is working!"
+
+@app.route('/', defaults={'filename': ''})
 @app.route('/<path:filename>')
 def serve_file(filename):
     try:
+        # If no filename is provided, list the directory contents
+        if filename == '':
+            files = os.listdir(CDN_DIRECTORY)
+            files_list = '<br>'.join([f'<a href="/{file}">{file}</a>' for file in files])
+            return render_template_string('<h1>{{ directory }}</h1><p>{{ files_list | safe }}</p>', directory=CDN_DIRECTORY, files_list=files_list)
+        
         # Safely join the directory and filename
         file_path = safe_join(CDN_DIRECTORY, filename)
 
