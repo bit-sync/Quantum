@@ -11,7 +11,7 @@ def safe_join(directory, path):
     final_path = os.path.join(directory, path)
     
     # Ensure the final path is within the directory
-    if os.path.commonprefix([final_path, directory]) == directory:
+    if os.path.commonprefix([os.path.realpath(final_path), os.path.realpath(directory)]) == os.path.realpath(directory):
         return final_path
     return None
 
@@ -19,21 +19,25 @@ def safe_join(directory, path):
 @app.route('/<path:filename>')
 def serve_file(filename):
     try:
-        # If no filename is provided, list the directory contents
-        if filename == '':
-            files = os.listdir(CDN_DIRECTORY)
-            files_list = '<br>'.join([f'<a href="/{file}">{file}</a>' for file in files])
-            return render_template_string('<h1>{{ directory }}</h1><p>{{ files_list | safe }}</p>', directory=CDN_DIRECTORY, files_list=files_list)
-        
         # Safely join the directory and filename
         file_path = safe_join(CDN_DIRECTORY, filename)
 
-        # Check if the file path is valid and the file exists
-        if file_path is None or not os.path.isfile(file_path):
+        # If the file path is invalid, return 404
+        if file_path is None:
             abort(404)  # File not found
 
-        # Serve the file from the specified directory
-        return send_from_directory(CDN_DIRECTORY, filename)
+        # If the path is a directory, list the directory contents
+        if os.path.isdir(file_path):
+            files = os.listdir(file_path)
+            files_list = '<br>'.join([f'<a href="/{filename}/{file}">{file}</a>' for file in files])
+            return render_template_string('<h1>{{ directory }}</h1><p>{{ files_list | safe }}</p>', directory=file_path, files_list=files_list)
+        
+        # If the file path is a valid file, serve the file
+        if os.path.isfile(file_path):
+            return send_from_directory(CDN_DIRECTORY, filename)
+
+        # If none of the above conditions are met, return 404
+        abort(404)
     except Exception as e:
         # Handle exceptions (e.g., file not found, security issues)
         abort(404)
